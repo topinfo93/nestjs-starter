@@ -13,8 +13,17 @@ export class DatabaseService
     private readonly pool: Pool;
 
     constructor(configService: ConfigService) {
+        const connectionUrl = new URL(
+            configService.getOrThrow<string>('DATABASE_URL')
+        );
+        const databasePassword = configService.get<string>('DATABASE_PASSWORD');
+        if (databasePassword) {
+            // Keep the database password in its own secret so it does not need
+            // to be URL-encoded or embedded in a connection string.
+            connectionUrl.password = databasePassword;
+        }
         const pool = new Pool({
-            connectionString: configService.getOrThrow<string>('DATABASE_URL'),
+            connectionString: connectionUrl.toString(),
         });
         super({ adapter: new PrismaPg(pool) });
         this.pool = pool;

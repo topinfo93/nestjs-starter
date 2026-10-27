@@ -22,6 +22,7 @@ Website tiếng Việt theo dõi lịch thi đấu, tỷ số, bảng xếp hạ
 | `APP_ENV`                 | `production`.                                                             |
 | `APP_CORS_ORIGINS`        | Origin chính xác của frontend Vercel.                                     |
 | `DATABASE_URL`            | Kết nối PostgreSQL Supabase qua pooler hoặc direct connection.            |
+| `DATABASE_PASSWORD`       | Mật khẩu Postgres riêng; API mã hóa cho URI nội bộ khi mở kết nối.        |
 | `FOOTBALL_DATA_API_TOKEN` | Secret football-data.org; chỉ cấu hình trên Render.                       |
 | `SUPABASE_URL`            | URL project Supabase.                                                     |
 | `SUPABASE_ANON_KEY`       | Publishable key dùng để xác minh phiên Auth; không phải service-role key. |

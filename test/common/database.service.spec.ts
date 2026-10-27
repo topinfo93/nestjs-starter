@@ -41,6 +41,7 @@ describe('DatabaseService', () => {
                 {
                     provide: ConfigService,
                     useValue: {
+                        get: jest.fn().mockReturnValue(undefined),
                         getOrThrow: jest
                             .fn()
                             .mockReturnValue(
