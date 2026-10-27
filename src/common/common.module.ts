@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { BullMqModule } from './bullmq/bullmq.module';
-import { CacheModule } from './cache/cache.module';
 import configs from './config';
 import { DatabaseModule } from './database/database.module';
 import { CustomLoggerModule } from './logger/logger.module';
@@ -27,9 +25,7 @@ import { ResponseModule } from './response/response.module';
         CustomLoggerModule,
         RequestModule,
         ResponseModule,
-        CacheModule,
-        BullMqModule,
     ],
-    exports: [DatabaseModule, CacheModule],
+    exports: [DatabaseModule],
 })
 export class CommonModule {}

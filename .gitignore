@@ -5,6 +5,7 @@ dist/
 tmp/
 temp/
 coverage/
+*.tsbuildinfo
 
 # environment
 .env

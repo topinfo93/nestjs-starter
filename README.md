@@ -1,162 +1,65 @@
-<div align="center">
+# Sân Nhà
 
-# NestJS Starter
+Website tiếng Việt theo dõi lịch thi đấu, tỷ số, bảng xếp hạng và tin bóng đá của sáu giải: Premier League, La Liga, Bundesliga, Serie A, Ligue 1 và UEFA Champions League.
 
-**Clone. Configure. Ship.**
+## Kiến trúc
 
-Everything you need to build a production API — auth, database, cache, queues, logging, and tests — already wired together so you can focus on what makes your product different.
+- `web/`: React + TypeScript + Vite, triển khai trên Vercel.
+- `src/`: NestJS API, triển khai trên Render.
+- Supabase Postgres: dữ liệu thi đấu đã đồng bộ và bài viết.
+- football-data.org v4: nguồn dữ liệu bóng đá duy nhất; chỉ API backend giữ token.
 
-[![CodeQL](https://github.com/hmake98/nestjs-starter/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/hmake98/nestjs-starter/actions/workflows/github-code-scanning/codeql)
-&nbsp;
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-&nbsp;
-![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
-&nbsp;
-![Statements](https://img.shields.io/badge/statements-100%25-brightgreen.svg?style=flat)
+Ứng dụng không có đăng ký độc giả, bình luận, chuyển nhượng hoặc tài khoản người dùng công khai. Các endpoint CMS yêu cầu Supabase access token và kiểm tra email quản trị viên ở backend.
 
-</div>
+## Biến môi trường
 
----
+### NestJS API
 
-## What's included
+| Biến                      | Mô tả                                                                     |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `PORT`                    | Cổng do Render cấp.                                                       |
+| `HTTP_HOST`               | Đặt `0.0.0.0` trên Render.                                                |
+| `APP_ENV`                 | `production`.                                                             |
+| `APP_CORS_ORIGINS`        | Origin chính xác của frontend Vercel.                                     |
+| `DATABASE_URL`            | Kết nối PostgreSQL Supabase qua pooler hoặc direct connection.            |
+| `FOOTBALL_DATA_API_TOKEN` | Secret football-data.org; chỉ cấu hình trên Render.                       |
+| `SUPABASE_URL`            | URL project Supabase.                                                     |
+| `SUPABASE_ANON_KEY`       | Publishable key dùng để xác minh phiên Auth; không phải service-role key. |
+| `ADMIN_EMAIL`             | Email quản trị duy nhất (`topinfo93@gmail.com`).                          |
 
-```
-Auth          JWT access + refresh tokens · argon2 hashing · RBAC
-Database      PostgreSQL · Prisma 7 · pg Pool adapter (no binary engine)
-Cache         Redis · ioredis · typed CacheService wrapper
-Queues        BullMQ with shared Redis connection
-Logging       Structured JSON via nestjs-pino · request correlation IDs
-API Docs      Swagger / OpenAPI — dev and staging only
-i18n          Multi-language support via nestjs-i18n
-Validation    class-validator · whitelist · forbidNonWhitelisted
-Rate Limiting Per-route throttling via @nestjs/throttler
-Health        /health endpoint via @nestjs/terminus
-Error Tracking Sentry integration for 5xx errors
-Testing       Jest · SWC · 100% coverage enforced
-Code Quality  ESLint · Prettier · Husky · Conventional Commits
-Docker        Multi-stage image · hot reload in dev · minimal prod image
-```
+### Frontend Vercel
 
----
+| Biến                     | Mô tả                                 |
+| ------------------------ | ------------------------------------- |
+| `VITE_API_BASE_URL`      | URL HTTPS của NestJS API trên Render. |
+| `VITE_SUPABASE_URL`      | URL project Supabase.                 |
+| `VITE_SUPABASE_ANON_KEY` | Publishable key của Supabase Auth.    |
 
-## Getting started
+Không đưa database password, service-role key hay football-data token vào biến `VITE_*`.
 
-**Prerequisites:** Node.js ≥ 20, PostgreSQL, Redis
+## Cài đặt và chạy local
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/hmake98/nestjs-starter.git
-cd nestjs-starter && npm install
-
-# 2. Configure
-cp .env.example .env
-# Fill in DATABASE_URL, REDIS_URL, and the two JWT secrets below
-
-openssl rand -base64 32   # → AUTH_ACCESS_TOKEN_SECRET
-openssl rand -base64 32   # → AUTH_REFRESH_TOKEN_SECRET
-
-# 3. Database
-npm run db:generate && npm run db:migrate
-
-# 4. Run
+# API
+npm ci
+npx prisma generate
+npm run build
 npm run dev
-# API  → http://localhost:3000
-# Docs → http://localhost:3000/docs
+
+# Frontend
+cd web
+npm ci
+npm run dev
 ```
 
----
+Tạo `.env` từ `.env.example` rồi điền các biến cần thiết. Không commit `.env`.
 
-## Project layout
+## Cơ sở dữ liệu
 
-```
-src/
-├── app/                  root module, health check
-├── common/
-│   ├── bullmq/           queue module
-│   ├── cache/            Redis CacheService
-│   ├── config/           typed config factories
-│   ├── database/         DatabaseService, repositories
-│   ├── doc/              @ApiEndpoint decorator
-│   ├── logger/           Pino setup
-│   ├── message/          i18n resolution
-│   ├── request/          guards, decorators, throttler
-│   └── response/         interceptor, filter, serializer
-├── modules/
-│   ├── auth/             login · signup · refresh
-│   └── user/             profile · update · admin delete
-├── workers/              cron schedulers
-└── scripts/              CLI seed commands
-prisma.config.ts          Prisma 7 config (auto-detected)
-prisma/schema.prisma
-```
+Schema nằm trong `supabase/migrations/`. Các bảng đều bật RLS và không cấp quyền truy cập trực tiếp cho vai trò `anon`/`authenticated`; dữ liệu chỉ được NestJS truy cập bằng kết nối máy chủ. Schema được tạo trong project Supabase riêng dành cho Sân Nhà. Khi cập nhật schema, tạo và áp dụng migration Supabase mới; không chạy `prisma migrate deploy` trên project này.
 
-**Dependency rules:** feature modules import `DatabaseModule` directly and never each other. `CommonModule` is only imported by `AppModule`.
+Tạo tài khoản quản trị duy nhất `topinfo93@gmail.com` trong Supabase Auth Dashboard trước khi dùng CMS. Không bật giao diện đăng ký độc giả.
 
----
+## Cập nhật dữ liệu
 
-## API
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| `GET` | `/health` | public | Health check |
-| `POST` | `/v1/auth/signup` | public | Register |
-| `POST` | `/v1/auth/login` | public | Login — returns access + refresh tokens |
-| `GET` | `/v1/auth/refresh-token` | refresh token | Renew token pair |
-| `GET` | `/v1/user/profile` | JWT | Authenticated user's profile |
-| `PUT` | `/v1/user` | JWT | Update own profile |
-| `DELETE` | `/v1/admin/user/:id` | JWT + ADMIN | Soft-delete a user |
-
-Swagger UI is available at `/docs` in non-production environments.
-
----
-
-## Environment variables
-
-| Variable | Required | Default | |
-|---|---|---|---|
-| `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
-| `REDIS_URL` | ✅ | — | Redis URL |
-| `AUTH_ACCESS_TOKEN_SECRET` | ✅ | — | JWT signing secret |
-| `AUTH_REFRESH_TOKEN_SECRET` | ✅ | — | JWT refresh secret |
-| `APP_ENV` | | `local` | `local` · `development` · `staging` · `production` |
-| `HTTP_PORT` | | `3000` | |
-| `HTTP_HOST` | | `localhost` | Use `0.0.0.0` inside Docker |
-| `AUTH_ACCESS_TOKEN_EXP` | | `1d` | |
-| `AUTH_REFRESH_TOKEN_EXP` | | `7d` | |
-| `SENTRY_DSN` | | — | Enables error tracking |
-
----
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start with hot reload |
-| `npm run build` | Compile to `dist/` |
-| `npm start` | Run compiled app |
-| `npm test` | Run tests with coverage |
-| `npm run db:generate` | Generate Prisma client |
-| `npm run db:migrate` | Run migrations (dev) |
-| `npm run db:migrate-prod` | Run migrations (production) |
-| `npm run seed:admin` | Create default admin user |
-| `npm run lint:fix` | Lint and auto-fix |
-| `npm run format` | Format all source files |
-
----
-
-## Docker
-
-```bash
-docker compose up                                    # dev — hot reload, source mounted
-docker build --target production -t nestjs-starter . # prod — minimal image
-```
-
-The entrypoint runs `prisma generate` and `prisma migrate deploy` on startup. Set `HTTP_HOST=0.0.0.0` inside containers.
-
----
-
-<div align="center">
-
-[MIT License](LICENSE) · Built with [NestJS](https://nestjs.com)
-
-</div>
+API đồng bộ theo yêu cầu, có khóa chống gọi trùng và giới hạn khoảng cách request để tôn trọng quota miễn phí. Dữ liệu lỗi hoặc giải không nằm trong coverage được lưu thành trạng thái sync để giao diện thông báo; ứng dụng không sinh tỷ số hay bảng xếp hạng giả. Render Free có thể sleep khi không có lượt truy cập, nên không cam kết cập nhật trực tiếp.

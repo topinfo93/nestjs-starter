@@ -2,9 +2,9 @@ import { Module } from '@nestjs/common';
 import { TerminusModule } from '@nestjs/terminus';
 
 import { CommonModule } from 'src/common/common.module';
-import { AuthModule } from 'src/modules/auth/auth.module';
-import { UserModule } from 'src/modules/user/user.module';
-import { WorkerModule } from 'src/workers/worker.module';
+import { AdminModule } from 'src/modules/admin/admin.module';
+import { ArticlesModule } from 'src/modules/articles/articles.module';
+import { FootballModule } from 'src/modules/football/football.module';
 
 import { HealthController } from './controllers/health.controller';
 
@@ -16,12 +16,9 @@ import { HealthController } from './controllers/health.controller';
         // Health Check
         TerminusModule,
 
-        // Background Processing
-        WorkerModule,
-
-        // Feature Modules
-        AuthModule,
-        UserModule,
+        FootballModule,
+        ArticlesModule,
+        AdminModule,
     ],
     controllers: [HealthController],
 })

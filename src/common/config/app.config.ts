@@ -33,9 +33,9 @@ export default registerAs('app', () => {
 
         http: {
             host: process.env.HTTP_HOST ?? 'localhost',
-            port: process.env.HTTP_PORT
-                ? Number.parseInt(process.env.HTTP_PORT)
-                : 3000,
+            port: Number.parseInt(
+                process.env.HTTP_PORT ?? process.env.PORT ?? '3000'
+            ),
         },
 
         cors: corsConfig,

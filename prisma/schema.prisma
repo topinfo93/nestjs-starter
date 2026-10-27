@@ -27,6 +27,105 @@ model User {
   @@map("users")
 }
 
+model Competition {
+  code       String     @id
+  name       String
+  area       String?
+  emblem     String?
+  seasonYear Int?
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  matches    Match[]
+  standings  Standing[]
+
+  @@map("competitions")
+}
+
+model Team {
+  id        Int        @id
+  name      String
+  shortName String?    @map("short_name")
+  tla       String?
+  crest     String?
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  home      Match[]    @relation("home_team")
+  away      Match[]    @relation("away_team")
+  standings Standing[]
+
+  @@map("teams")
+}
+
+model Match {
+  id              Int         @id
+  competitionCode String      @map("competition_code")
+  seasonYear      Int?        @map("season_year")
+  utcDate         DateTime    @map("utc_date")
+  status          String
+  matchday        Int?
+  stage           String?
+  homeTeamId      Int         @map("home_team_id")
+  awayTeamId      Int         @map("away_team_id")
+  homeScore       Int?        @map("home_score")
+  awayScore       Int?        @map("away_score")
+  lastUpdated     DateTime?   @map("last_updated")
+  competition     Competition @relation(fields: [competitionCode], references: [code], onDelete: Cascade)
+  homeTeam        Team        @relation("home_team", fields: [homeTeamId], references: [id])
+  awayTeam        Team        @relation("away_team", fields: [awayTeamId], references: [id])
+
+  @@index([utcDate])
+  @@index([competitionCode, utcDate])
+  @@map("matches")
+}
+
+model Standing {
+  id              Int         @id @default(autoincrement())
+  competitionCode String      @map("competition_code")
+  seasonYear      Int         @map("season_year")
+  teamId          Int         @map("team_id")
+  position        Int
+  playedGames     Int         @map("played_games")
+  won             Int
+  draw            Int
+  lost            Int
+  points          Int
+  goalsFor        Int         @map("goals_for")
+  goalsAgainst    Int         @map("goals_against")
+  goalDifference  Int         @map("goal_difference")
+  group           String?
+  competition     Competition @relation(fields: [competitionCode], references: [code], onDelete: Cascade)
+  team            Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionCode, seasonYear, teamId])
+  @@index([competitionCode, seasonYear, position])
+  @@map("standings")
+}
+
+model SyncState {
+  key         String    @id
+  fetchedAt   DateTime? @map("fetched_at")
+  status      String
+  error       String?
+  lastAttempt DateTime  @default(now()) @map("last_attempt")
+
+  @@map("sync_states")
+}
+
+model Article {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  excerpt     String?
+  content     String
+  coverImage  String?   @map("cover_image")
+  status      String    @default("DRAFT")
+  isSample    Boolean   @default(false) @map("is_sample")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  publishedAt DateTime? @map("published_at")
+
+  @@index([status, publishedAt])
+  @@map("articles")
+}
+
 enum Role {
   ADMIN
   MEMBER
