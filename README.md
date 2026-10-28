@@ -40,6 +40,25 @@ Không đưa database password, service-role key hay football-data token vào bi
 
 ## Cài đặt và chạy local
 
+### Chạy demo local không cần dịch vụ ngoài
+
+Backend đặt `APP_ENV=local` và `LOCAL_DEMO_MODE=true` trong `.env`. Khi bật chế độ này, API dùng dữ liệu mẫu cho bóng đá, lưu bài viết CMS trong bộ nhớ và không cần `DATABASE_URL`, football-data.org token hoặc Supabase. Mật khẩu admin local lấy từ `LOCAL_ADMIN_PASSWORD` (mặc định trong env mẫu là `san-nha-local-demo`). Frontend đặt `VITE_LOCAL_DEMO_MODE=true` và `VITE_API_BASE_URL=http://localhost:3000` trong `web/.env`.
+
+```bash
+# Terminal 1: API (repo root)
+npm ci
+npm run dev
+
+# Terminal 2: frontend
+cd web
+npm ci
+npm run dev
+```
+
+CMS demo chỉ xác thực local và dữ liệu tạo/sửa/xóa sẽ mất khi API khởi động lại. Không bật `LOCAL_DEMO_MODE` trong production; chế độ giả chỉ hoạt động khi `APP_ENV=local`.
+
+### Chạy với dịch vụ đã cấu hình
+
 ```bash
 # API
 npm ci

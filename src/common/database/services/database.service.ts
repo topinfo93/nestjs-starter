@@ -11,10 +11,18 @@ export class DatabaseService
     implements OnModuleInit, OnModuleDestroy
 {
     private readonly pool: Pool;
+    private readonly localDemoMode: boolean;
 
     constructor(configService: ConfigService) {
+        const localDemoMode =
+            configService.get<string>('LOCAL_DEMO_MODE') === 'true' &&
+            configService.get<string>('APP_ENV') === 'local' &&
+            configService.get<string>('NODE_ENV') !== 'production';
+        const databaseUrl = localDemoMode
+            ? configService.get<string>('DATABASE_URL')
+            : configService.getOrThrow<string>('DATABASE_URL');
         const connectionUrl = new URL(
-            configService.getOrThrow<string>('DATABASE_URL')
+            databaseUrl ?? 'postgresql://demo:demo@127.0.0.1:5432/sannha_demo'
         );
         const databasePassword = configService.get<string>('DATABASE_PASSWORD');
         if (databasePassword) {
@@ -26,19 +34,24 @@ export class DatabaseService
             connectionString: connectionUrl.toString(),
         });
         super({ adapter: new PrismaPg(pool) });
+        this.localDemoMode = localDemoMode;
         this.pool = pool;
     }
 
     async onModuleInit() {
+        if (this.localDemoMode) return;
         await this.$connect();
     }
 
     async onModuleDestroy() {
-        await this.$disconnect();
+        if (!this.localDemoMode) await this.$disconnect();
         await this.pool.end();
     }
 
     async isHealthy(): Promise<HealthIndicatorResult> {
+        if (this.localDemoMode) {
+            return { database: { status: 'up', mode: 'local-demo' } };
+        }
         try {
             await this.$queryRaw`SELECT 1`;
             return { prisma: { status: 'up' } };

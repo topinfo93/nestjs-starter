@@ -5,14 +5,15 @@ import './style.css';
 const API = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const LOCAL_DEMO_MODE = import.meta.env.VITE_LOCAL_DEMO_MODE === 'true';
 const ADMIN_EMAIL = 'topinfo93@gmail.com';
 const leagues = [
-    { code: 'PL', name: 'Premier League', country: 'Anh', flag: '🏴' },
-    { code: 'PD', name: 'La Liga', country: 'Tây Ban Nha', flag: '🇪🇸' },
-    { code: 'BL1', name: 'Bundesliga', country: 'Đức', flag: '🇩🇪' },
-    { code: 'SA', name: 'Serie A', country: 'Ý', flag: '🇮🇹' },
-    { code: 'FL1', name: 'Ligue 1', country: 'Pháp', flag: '🇫🇷' },
-    { code: 'CL', name: 'Champions League', country: 'Châu Âu', flag: '✦' },
+    { code: 'PL', name: 'Premier League', country: 'England', flag: '🏴' },
+    { code: 'PD', name: 'La Liga', country: 'Spain', flag: '🇪🇸' },
+    { code: 'BL1', name: 'Bundesliga', country: 'Germany', flag: '🇩🇪' },
+    { code: 'SA', name: 'Serie A', country: 'Italy', flag: '🇮🇹' },
+    { code: 'FL1', name: 'Ligue 1', country: 'France', flag: '🇫🇷' },
+    { code: 'CL', name: 'Champions League', country: 'Europe', flag: '✦' },
 ];
 type Team = { id: number; name: string; shortName?: string };
 type Match = {
@@ -77,12 +78,14 @@ async function api<T>(
         },
     });
     if (!response.headers.get('content-type')?.includes('application/json')) {
-        throw new Error('API không trả về dữ liệu JSON. Kiểm tra URL backend trên Vercel.');
+        throw new Error(
+            'The API did not return JSON. Check the backend URL configuration.'
+        );
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
         throw new Error(
-            body.message || `Không thể tải dữ liệu (${response.status}).`
+            body.message || `Could not load data (${response.status}).`
         );
     }
     return (
@@ -90,7 +93,7 @@ async function api<T>(
     ) as T;
 }
 function localDate(date: string) {
-    return new Intl.DateTimeFormat('vi-VN', {
+    return new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Bangkok',
         day: '2-digit',
         month: '2-digit',
@@ -98,7 +101,7 @@ function localDate(date: string) {
     }).format(new Date(date));
 }
 function localTime(date: string) {
-    return new Intl.DateTimeFormat('vi-VN', {
+    return new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Bangkok',
         hour: '2-digit',
         minute: '2-digit',
@@ -108,14 +111,14 @@ function statusText(status: string) {
     return (
         (
             {
-                IN_PLAY: 'Đang đá',
-                PAUSED: 'Nghỉ giữa hiệp',
-                FINISHED: 'Kết thúc',
-                POSTPONED: 'Hoãn',
-                SUSPENDED: 'Tạm dừng',
-                CANCELLED: 'Hủy',
-                TIMED: 'Sắp diễn ra',
-                SCHEDULED: 'Sắp diễn ra',
+                IN_PLAY: 'Live',
+                PAUSED: 'Half-time',
+                FINISHED: 'Full-time',
+                POSTPONED: 'Postponed',
+                SUSPENDED: 'Suspended',
+                CANCELLED: 'Cancelled',
+                TIMED: 'Upcoming',
+                SCHEDULED: 'Upcoming',
             } as Record<string, string>
         )[status] || status
     );
@@ -172,7 +175,7 @@ function StateNote({ sync }: { sync?: Envelope<unknown>['sync'] }) {
     if (!list.length || list.every(item => item.status === 'PENDING'))
         return (
             <p className="state-note">
-                Đang chờ lần đồng bộ đầu tiên từ football-data.org…
+                Waiting for the first data sync from football-data.org…
             </p>
         );
     const stale = freshest
@@ -181,12 +184,12 @@ function StateNote({ sync }: { sync?: Envelope<unknown>['sync'] }) {
     return (
         <p className={`state-note ${errors.length || stale ? 'warn' : ''}`}>
             {errors.length
-                ? 'Một số giải hiện chưa lấy được dữ liệu; đang hiển thị lần cập nhật gần nhất nếu có.'
+                ? 'Some competitions could not be refreshed. Showing the latest available data.'
                 : stale
-                  ? 'Dữ liệu đã cũ; đang hiển thị lần đồng bộ gần nhất, không phải tỷ số trực tiếp.'
-                  : 'Nguồn: football-data.org'}
+                  ? 'Data may be out of date. Showing the latest sync, not live scores.'
+                  : 'Source: football-data.org'}
             {freshest
-                ? ` · Cập nhật ${localDate(freshest)} ${localTime(freshest)} (Bangkok)`
+                ? ` · Updated ${localDate(freshest)} ${localTime(freshest)} (Bangkok)`
                 : ''}
         </p>
     );
@@ -218,7 +221,7 @@ function MatchCard({
     return (
         <button
             className="match-row"
-            onClick={() => navigate(`/tran-dau/${match.id}`)}
+            onClick={() => navigate(`/matches/${match.id}`)}
         >
             <div className="match-meta">
                 <span>{localTime(match.utcDate)}</span>
@@ -250,24 +253,24 @@ function Header({ navigate }: { navigate: (path: string) => void }) {
         <header className="header">
             <div className="header-inner">
                 <Link to="/" navigate={navigate} className="brand">
-                    <span className="brand-mark">SN</span>
+                    <span className="brand-mark">HG</span>
                     <span>
-                        SÂN NHÀ<small>BÓNG ĐÁ MỖI NGÀY</small>
+                        HOME GROUND<small>FOOTBALL EVERY DAY</small>
                     </span>
                 </Link>
                 <nav>
-                    <Link to="/lich-thi-dau" navigate={navigate}>
-                        Lịch thi đấu
+                    <Link to="/fixtures" navigate={navigate}>
+                        Fixtures
                     </Link>
-                    <Link to="/giai-dau/PL" navigate={navigate}>
-                        Giải đấu
+                    <Link to="/leagues/PL" navigate={navigate}>
+                        Competitions
                     </Link>
-                    <Link to="/tin-tuc" navigate={navigate}>
-                        Tin tức
+                    <Link to="/news" navigate={navigate}>
+                        News
                     </Link>
                 </nav>
                 <Link to="/admin" navigate={navigate} className="admin-link">
-                    Quản trị <span>↗</span>
+                    Admin <span>↗</span>
                 </Link>
             </div>
         </header>
@@ -278,15 +281,15 @@ function Footer({ navigate }: { navigate: (path: string) => void }) {
         <footer>
             <div className="footer-inner">
                 <div className="brand footer-brand">
-                    <span className="brand-mark">SN</span>
+                    <span className="brand-mark">HG</span>
                     <span>
-                        SÂN NHÀ<small>BÓNG ĐÁ MỖI NGÀY</small>
+                        HOME GROUND<small>FOOTBALL EVERY DAY</small>
                     </span>
                 </div>
-                <p>Lịch thi đấu, tỷ số và bảng xếp hạng bóng đá châu Âu.</p>
-                <span>Dữ liệu trận đấu: football-data.org</span>
+                <p>European football fixtures, scores and league tables.</p>
+                <span>Match data: football-data.org</span>
                 <Link to="/admin" navigate={navigate}>
-                    Quản trị biên tập
+                    Editorial admin
                 </Link>
             </div>
         </footer>
@@ -324,11 +327,11 @@ function MatchSection({
         <section className="panel">
             <div className="panel-head">
                 <div>
-                    <span className="eyebrow">TRẬN ĐẤU</span>
+                    <span className="eyebrow">MATCHES</span>
                     <h2>{title}</h2>
                 </div>
-                <Link to="/lich-thi-dau" navigate={navigate}>
-                    Tất cả lịch <span>→</span>
+                <Link to="/fixtures" navigate={navigate}>
+                    All fixtures <span>→</span>
                 </Link>
             </div>
             {matches.length ? (
@@ -382,23 +385,23 @@ function Home({ navigate }: { navigate: (path: string) => void }) {
                 <div className="hero-pattern" />
                 <div className="hero-copy">
                     <span className="eyebrow light">
-                        SÁU GIẢI ĐẤU · CẬP NHẬT MỖI NGÀY
+                        SIX LEAGUES · UPDATED DAILY
                     </span>
                     <h1>
-                        Nhịp đập
+                        The pulse of
                         <br />
-                        <em>sân cỏ châu Âu.</em>
+                        <em>European football.</em>
                     </h1>
                     <p>
-                        Lịch đấu, tỷ số và cuộc đua bảng xếp hạng của sáu giải
-                        hàng đầu — tất cả trong một góc nhìn.
+                        Fixtures, scores and title races across six leading
+                        leagues, all in one place.
                     </p>
                     <Link
-                        to="/lich-thi-dau"
+                        to="/fixtures"
                         navigate={navigate}
                         className="button button-lime"
                     >
-                        Xem lịch thi đấu <span>→</span>
+                        View fixtures <span>→</span>
                     </Link>
                 </div>
                 <div className="hero-orbit">
@@ -406,13 +409,13 @@ function Home({ navigate }: { navigate: (path: string) => void }) {
                     <div className="orb orb-two" />
                     <div className="orb-ball">⚽</div>
                     <div className="orb-label">
-                        90′<small>PHÚT CỦA ĐAM MÊ</small>
+                        90′<small>MINUTES OF PASSION</small>
                     </div>
                 </div>
                 <div className="hero-bottom">
                     <span>01 — 06</span>
                     <div />
-                    <span>ĐẠI CHIẾN MỖI TUẦN</span>
+                    <span>BIG MATCHES EVERY WEEK</span>
                 </div>
             </section>
             {error && <div className="notice">{error}</div>}
@@ -421,33 +424,31 @@ function Home({ navigate }: { navigate: (path: string) => void }) {
                 <div className="content-grid">
                     <div className="main-column">
                         <MatchSection
-                            title="Hôm nay"
+                            title="Today"
                             matches={todayMatches}
                             navigate={navigate}
-                            empty="Chưa có trận nào trong khung giờ hôm nay. Dữ liệu sẽ hiện sau khi nguồn cập nhật."
+                            empty="No matches scheduled for today. Fixtures will appear when data is available."
                         />
                         <MatchSection
-                            title="Kết quả gần đây"
+                            title="Recent results"
                             matches={recent}
                             navigate={navigate}
-                            empty="Chưa có kết quả gần đây từ nguồn dữ liệu."
+                            empty="No recent results are available."
                         />
                     </div>
                     <aside className="side-column">
                         <section className="panel league-panel">
                             <div className="panel-head">
                                 <div>
-                                    <span className="eyebrow">
-                                        SÁU GIẢI ĐẤU
-                                    </span>
-                                    <h2>Chọn sân cỏ</h2>
+                                    <span className="eyebrow">SIX LEAGUES</span>
+                                    <h2>Choose a league</h2>
                                 </div>
                             </div>
                             {leagues.map((league, i) => (
                                 <Link
                                     key={league.code}
                                     className="league-row"
-                                    to={`/giai-dau/${league.code}`}
+                                    to={`/leagues/${league.code}`}
                                     navigate={navigate}
                                 >
                                     <span className="league-number">
@@ -465,23 +466,23 @@ function Home({ navigate }: { navigate: (path: string) => void }) {
                             ))}
                         </section>
                         <section className="quote-card">
-                            <span className="eyebrow light">GÓC SÂN NHÀ</span>
+                            <span className="eyebrow light">FROM THE TOUCHLINE</span>
                             <p>
-                                “Bóng đá không chỉ là 90 phút. Đó là câu chuyện
-                                bắt đầu từ trước khi tiếng còi vang lên.”
+                                “Football is more than 90 minutes. The story
+                                begins long before the whistle.”
                             </p>
-                            <span>— TINH THẦN SÂN NHÀ</span>
+                            <span>— THE HOME GROUND SPIRIT</span>
                         </section>
                     </aside>
                 </div>
                 <section className="news-block">
                     <div className="panel-head">
                         <div>
-                            <span className="eyebrow">TỪ PHÒNG BIÊN TẬP</span>
-                            <h2>Tin mới nhất</h2>
+                            <span className="eyebrow">FROM THE NEWSROOM</span>
+                            <h2>Latest news</h2>
                         </div>
-                        <Link to="/tin-tuc" navigate={navigate}>
-                            Xem tất cả <span>→</span>
+                        <Link to="/news" navigate={navigate}>
+                            View all <span>→</span>
                         </Link>
                     </div>
                     <div className="news-grid">
@@ -489,26 +490,22 @@ function Home({ navigate }: { navigate: (path: string) => void }) {
                             <Link
                                 className="news-card"
                                 key={article.id}
-                                to={`/tin-tuc/${article.slug}`}
+                                to={`/news/${article.slug}`}
                                 navigate={navigate}
                             >
                                 <span className="news-index">0{i + 1}</span>
                                 <span className="news-tag">
-                                    {article.isSample
-                                        ? 'NỘI DUNG MẪU'
-                                        : 'TIN TỨC'}
+                                    {article.isSample ? 'SAMPLE' : 'NEWS'}
                                 </span>
                                 <h3>{article.title}</h3>
                                 <p>{article.excerpt}</p>
                                 <span className="news-more">
-                                    Đọc bài viết ↗
+                                    Read article ↗
                                 </span>
                             </Link>
                         ))}
                         {!articles.length && (
-                            <div className="empty">
-                                Chưa có bài viết được xuất bản.
-                            </div>
+                            <div className="empty">No published articles yet.</div>
                         )}
                     </div>
                 </section>
@@ -547,12 +544,12 @@ function Schedule({ navigate }: { navigate: (path: string) => void }) {
         <main className="content page-content">
             <PageTitle
                 eyebrow="FIXTURES & RESULTS"
-                title="Lịch thi đấu"
-                subtitle="Theo dõi các trận cầu và kết quả từ sáu giải bóng đá châu Âu."
+                title="Fixtures"
+                subtitle="Follow matches and results across six European football leagues."
             />
             <div className="filters">
                 <label>
-                    Ngày thi đấu
+                    Match date
                     <input
                         type="date"
                         value={date}
@@ -560,12 +557,12 @@ function Schedule({ navigate }: { navigate: (path: string) => void }) {
                     />
                 </label>
                 <label>
-                    Giải đấu
+                    League
                     <select
                         value={league}
                         onChange={e => setLeague(e.target.value)}
                     >
-                        <option value="">Tất cả giải</option>
+                        <option value="">All leagues</option>
                         {leagues.map(x => (
                             <option key={x.code} value={x.code}>
                                 {x.name}
@@ -579,22 +576,22 @@ function Schedule({ navigate }: { navigate: (path: string) => void }) {
             <div className="content-grid schedule-grid">
                 <div className="main-column">
                     <MatchSection
-                        title="Sắp diễn ra"
+                        title="Upcoming"
                         matches={upcoming}
                         navigate={navigate}
-                        empty="Không có trận sắp diễn ra trong ngày đã chọn."
+                        empty="No upcoming matches on the selected date."
                     />
                     <MatchSection
-                        title="Đã và đang diễn ra"
+                        title="Completed and live"
                         matches={finished}
                         navigate={navigate}
-                        empty="Chưa có trận đã kết thúc hoặc đang đá trong ngày này."
+                        empty="No completed or live matches on this date."
                     />
                 </div>
                 <aside className="side-column">
                     <section className="panel">
-                        <span className="eyebrow">LỊCH NHANH</span>
-                        <h2>Các giải theo dõi</h2>
+                        <span className="eyebrow">QUICK FILTER</span>
+                        <h2>Followed leagues</h2>
                         {leagues.map(item => (
                             <button
                                 className={`filter-league ${league === item.code ? 'selected' : ''}`}
@@ -641,26 +638,26 @@ function CompetitionPage({
     return (
         <main className="content page-content">
             <PageTitle
-                eyebrow={`GIẢI ĐẤU · ${item?.country || 'CHÂU ÂU'}`}
-                title={item?.name || 'Giải đấu'}
-                subtitle={`Lịch thi đấu, kết quả và bảng xếp hạng ${item?.name || ''} mùa ${payload.competition?.seasonYear || 'hiện tại'}.`}
+                eyebrow={`LEAGUE · ${item?.country || 'EUROPE'}`}
+                title={item?.name || 'League'}
+                subtitle={`Fixtures, results and standings for ${item?.name || ''} in the ${payload.competition?.seasonYear || 'current'} season.`}
             />
             {error && <div className="notice">{error}</div>}
             <StateNote sync={payload.sync} />
             <div className="content-grid">
                 <div className="main-column">
                     <MatchSection
-                        title="Lịch & kết quả"
+                        title="Fixtures & results"
                         matches={payload.matches || []}
                         navigate={navigate}
-                        empty="Nguồn dữ liệu chưa trả về trận đấu cho giải này."
+                        empty="No matches have been returned for this league yet."
                     />
                 </div>
                 <aside className="side-column">
                     <section className="panel table-panel">
                         <div className="panel-head">
                             <div>
-                                <span className="eyebrow">BẢNG XẾP HẠNG</span>
+                                <span className="eyebrow">STANDINGS</span>
                                 <h2>{item?.name}</h2>
                             </div>
                         </div>
@@ -670,10 +667,10 @@ function CompetitionPage({
                                     <thead>
                                         <tr>
                                             <th>#</th>
-                                            <th>Đội</th>
-                                            <th>Tr</th>
-                                            <th>HS</th>
-                                            <th>Đ</th>
+                                            <th>Team</th>
+                                            <th>MP</th>
+                                            <th>GD</th>
+                                            <th>Pts</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -699,8 +696,8 @@ function CompetitionPage({
                             </div>
                         ) : (
                             <div className="empty">
-                                Bảng xếp hạng chưa được nguồn cung cấp hoặc đang
-                                đồng bộ.
+                                Standings are not available yet or are still
+                                syncing.
                             </div>
                         )}
                     </section>
@@ -730,9 +727,9 @@ function MatchDetail({
             ) : match ? (
                 <>
                     <PageTitle
-                        eyebrow={match.competition?.name || 'CHI TIẾT TRẬN ĐẤU'}
-                        title="Chi tiết trận đấu"
-                        subtitle={`${localDate(match.utcDate)} · ${localTime(match.utcDate)} giờ Bangkok`}
+                        eyebrow={match.competition?.name || 'MATCH DETAILS'}
+                        title="Match details"
+                        subtitle={`${localDate(match.utcDate)} · ${localTime(match.utcDate)} Bangkok time`}
                     />
                     <section className="match-detail panel">
                         <span className="match-status">
@@ -748,15 +745,15 @@ function MatchDetail({
                         </div>
                         <p>{match.competition?.name}</p>
                         <Link
-                            to={`/giai-dau/${match.competition?.code || match.competitionCode}`}
+                            to={`/leagues/${match.competition?.code || match.competitionCode}`}
                             navigate={navigate}
                         >
-                            Xem trang giải đấu →
+                            View league page →
                         </Link>
                     </section>
                 </>
             ) : (
-                <div className="empty">Đang tải thông tin trận đấu…</div>
+                <div className="empty">Loading match details…</div>
             )}
         </main>
     );
@@ -783,7 +780,7 @@ function News({
     }, [slug]);
     useEffect(() => {
         if (article) {
-            document.title = `${article.title} | Sân Nhà`;
+            document.title = `${article.title} | Home Ground`;
             document
                 .querySelector('meta[name="description"]')
                 ?.setAttribute('content', article.excerpt || article.title);
@@ -797,26 +794,26 @@ function News({
                 ) : article ? (
                     <>
                         <span className="eyebrow">
-                            {article.isSample ? 'NỘI DUNG MẪU' : 'TIN SÂN CỎ'}
+                            {article.isSample ? 'SAMPLE' : 'FOOTBALL NEWS'}
                         </span>
                         <h1>{article.title}</h1>
                         <p className="article-excerpt">{article.excerpt}</p>
                         <div className="article-body">{article.content}</div>
-                        <Link to="/tin-tuc" navigate={navigate}>
-                            ← Trở lại tin tức
+                        <Link to="/news" navigate={navigate}>
+                            ← Back to news
                         </Link>
                     </>
                 ) : (
-                    <div className="empty">Đang tải bài viết…</div>
+                    <div className="empty">Loading article…</div>
                 )}
             </main>
         );
     return (
         <main className="content page-content">
             <PageTitle
-                eyebrow="GÓC TIN SÂN CỎ"
-                title="Tin tức"
-                subtitle="Những câu chuyện, góc nhìn và nhịp sống quanh các giải đấu."
+                eyebrow="FOOTBALL NEWS"
+                title="News"
+                subtitle="Stories, perspectives and updates from across the leagues."
             />
             {error && <div className="notice">{error}</div>}
             <div className="news-grid news-list">
@@ -824,20 +821,20 @@ function News({
                     <Link
                         className="news-card"
                         key={item.id}
-                        to={`/tin-tuc/${item.slug}`}
+                        to={`/news/${item.slug}`}
                         navigate={navigate}
                     >
                         <span className="news-index">0{i + 1}</span>
                         <span className="news-tag">
-                            {item.isSample ? 'NỘI DUNG MẪU' : 'TIN TỨC'}
+                            {item.isSample ? 'SAMPLE' : 'NEWS'}
                         </span>
                         <h3>{item.title}</h3>
                         <p>{item.excerpt}</p>
-                        <span className="news-more">Đọc bài viết ↗</span>
+                        <span className="news-more">Read article ↗</span>
                     </Link>
                 ))}
                 {!articles.length && !error && (
-                    <div className="empty">Chưa có bài viết được xuất bản.</div>
+                    <div className="empty">No published articles yet.</div>
                 )}
             </div>
         </main>
@@ -845,7 +842,7 @@ function News({
 }
 function Admin() {
     const [token, setToken] = useState(
-        sessionStorage.getItem('san-nha-admin-token') || ''
+        sessionStorage.getItem('home-ground-admin-token') || ''
     );
     const [email, setEmail] = useState(ADMIN_EMAIL);
     const [password, setPassword] = useState('');
@@ -865,11 +862,11 @@ function Admin() {
         setItems(await api<Article[]>('/admin/articles', auth));
     }, []);
     useEffect(() => {
-        const stored = sessionStorage.getItem('san-nha-admin-token');
+        const stored = sessionStorage.getItem('home-ground-admin-token');
         if (stored)
             load(stored).catch(e => {
                 setError(e.message);
-                sessionStorage.removeItem('san-nha-admin-token');
+                sessionStorage.removeItem('home-ground-admin-token');
                 setToken('');
             });
     }, [load]);
@@ -880,10 +877,27 @@ function Admin() {
         try {
             if (email.toLowerCase() !== ADMIN_EMAIL)
                 throw new Error(
-                    'CMS chỉ dành cho tài khoản quản trị viên đã được cấp quyền.'
+                    'The CMS is restricted to the authorized administrator account.'
                 );
+            if (LOCAL_DEMO_MODE) {
+                const result = await api<{ access_token: string }>(
+                    '/admin/login',
+                    undefined,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({ email: ADMIN_EMAIL, password }),
+                    }
+                );
+                await load(result.access_token);
+                sessionStorage.setItem(
+                    'home-ground-admin-token',
+                    result.access_token
+                );
+                setToken(result.access_token);
+                return;
+            }
             if (!SUPABASE_URL || !SUPABASE_KEY)
-                throw new Error('CMS chưa được cấu hình đăng nhập.');
+                throw new Error('CMS sign-in is not configured.');
             const response = await fetch(
                 `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
                 {
@@ -899,13 +913,13 @@ function Admin() {
             if (!response.ok || !data.access_token)
                 throw new Error(
                     data.msg ||
-                        'Đăng nhập không thành công. Kiểm tra tài khoản quản trị Supabase.'
+                        'Sign-in failed. Check the Supabase administrator account.'
                 );
             await load(data.access_token);
-            sessionStorage.setItem('san-nha-admin-token', data.access_token);
+            sessionStorage.setItem('home-ground-admin-token', data.access_token);
             setToken(data.access_token);
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Đăng nhập thất bại.');
+            setError(e instanceof Error ? e.message : 'Sign-in failed.');
         } finally {
             setBusy(false);
         }
@@ -934,7 +948,9 @@ function Admin() {
             setEditingId(null);
             setItems(await api<Article[]>('/admin/articles', token));
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Không thể lưu bài.');
+            setError(
+                e instanceof Error ? e.message : 'Could not save the article.'
+            );
         } finally {
             setBusy(false);
         }
@@ -962,34 +978,38 @@ function Admin() {
             setItems(await api<Article[]>('/admin/articles', token));
         } catch (e) {
             setError(
-                e instanceof Error ? e.message : 'Không thể đổi trạng thái.'
+                e instanceof Error
+                    ? e.message
+                    : 'Could not change the article status.'
             );
         }
     }
     async function remove(item: Article) {
-        if (!confirm(`Xóa “${item.title}”?`)) return;
+        if (!confirm(`Delete “${item.title}”?`)) return;
         try {
             await api(`/admin/articles/${item.id}`, token, {
                 method: 'DELETE',
             });
             setItems(await api<Article[]>('/admin/articles', token));
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Không thể xóa bài.');
+            setError(
+                e instanceof Error ? e.message : 'Could not delete the article.'
+            );
         }
     }
     return (
         <main className="content page-content">
             <PageTitle
-                eyebrow="KHU VỰC RIÊNG TƯ"
-                title="CMS Sân Nhà"
-                subtitle="Đăng nhập quản trị để biên tập tin tức và đồng bộ dữ liệu giải đấu."
+                eyebrow="ADMIN AREA"
+                title="Home Ground CMS"
+                subtitle="Sign in to manage news articles and sync league data."
             />
             {error && <div className="notice">{error}</div>}
             {!token ? (
                 <form className="panel login-card" onSubmit={login}>
-                    <span className="eyebrow">CHỈ ADMIN</span>
-                    <h2>Đăng nhập biên tập</h2>
-                    <p>Tài khoản duy nhất được phép truy cập: {ADMIN_EMAIL}</p>
+                    <span className="eyebrow">ADMIN ONLY</span>
+                    <h2>Editor sign-in</h2>
+                    <p>Authorized administrator: {ADMIN_EMAIL}</p>
                     <label>
                         Email
                         <input
@@ -1000,7 +1020,7 @@ function Admin() {
                         />
                     </label>
                     <label>
-                        Mật khẩu
+                        Password
                         <input
                             type="password"
                             value={password}
@@ -1009,17 +1029,17 @@ function Admin() {
                         />
                     </label>
                     <button className="button button-dark" disabled={busy}>
-                        {busy ? 'Đang xác thực…' : 'Đăng nhập'}
+                        {busy ? 'Signing in…' : 'Sign in'}
                     </button>
                 </form>
             ) : (
                 <div className="admin-grid">
                     <section className="panel">
-                        <span className="eyebrow">BÀI VIẾT</span>
-                        <h2>{editingId ? 'Chỉnh sửa bài' : 'Tạo bài mới'}</h2>
+                        <span className="eyebrow">ARTICLES</span>
+                        <h2>{editingId ? 'Edit article' : 'Create article'}</h2>
                         <form className="admin-form" onSubmit={save}>
                             <label>
-                                Tiêu đề
+                                Title
                                 <input
                                     required
                                     value={form.title}
@@ -1032,10 +1052,10 @@ function Admin() {
                                 />
                             </label>
                             <label>
-                                Đường dẫn
+                                Slug
                                 <input
                                     value={form.slug}
-                                    placeholder="tu-dong-tao-tu-tieu-de"
+                                    placeholder="auto-generated-from-title"
                                     onChange={e =>
                                         setForm({
                                             ...form,
@@ -1045,7 +1065,7 @@ function Admin() {
                                 />
                             </label>
                             <label>
-                                Tóm tắt
+                                Excerpt
                                 <textarea
                                     rows={2}
                                     value={form.excerpt}
@@ -1058,7 +1078,7 @@ function Admin() {
                                 />
                             </label>
                             <label>
-                                Nội dung
+                                Content
                                 <textarea
                                     required
                                     rows={8}
@@ -1072,7 +1092,7 @@ function Admin() {
                                 />
                             </label>
                             <label>
-                                Trạng thái
+                                Status
                                 <select
                                     value={form.status}
                                     onChange={e =>
@@ -1082,15 +1102,15 @@ function Admin() {
                                         })
                                     }
                                 >
-                                    <option value="DRAFT">Bản nháp</option>
-                                    <option value="PUBLISHED">Xuất bản</option>
+                                    <option value="DRAFT">Draft</option>
+                                    <option value="PUBLISHED">Published</option>
                                 </select>
                             </label>
                             <button
                                 className="button button-dark"
                                 disabled={busy}
                             >
-                                {editingId ? 'Cập nhật bài' : 'Lưu bài'}
+                                {editingId ? 'Update article' : 'Save article'}
                             </button>
                             {editingId && (
                                 <button
@@ -1107,7 +1127,7 @@ function Admin() {
                                         });
                                     }}
                                 >
-                                    Hủy chỉnh sửa
+                                    Cancel editing
                                 </button>
                             )}
                         </form>
@@ -1115,19 +1135,19 @@ function Admin() {
                     <section className="panel">
                         <div className="panel-head">
                             <div>
-                                <span className="eyebrow">BIÊN TẬP</span>
-                                <h2>Danh sách bài</h2>
+                                <span className="eyebrow">EDITOR</span>
+                                <h2>Article list</h2>
                             </div>
                             <button
                                 className="text-button"
                                 onClick={() => {
                                     sessionStorage.removeItem(
-                                        'san-nha-admin-token'
+                                        'home-ground-admin-token'
                                     );
                                     setToken('');
                                 }}
                             >
-                                Đăng xuất
+                                Sign out
                             </button>
                         </div>
                         {items.map(item => (
@@ -1135,7 +1155,7 @@ function Admin() {
                                 <div>
                                     <b>{item.title}</b>
                                     <small>
-                                        {item.isSample ? 'Nội dung mẫu · ' : ''}
+                                        {item.isSample ? 'Sample · ' : ''}
                                         {item.status}
                                     </small>
                                 </div>
@@ -1143,32 +1163,32 @@ function Admin() {
                                     className="text-button"
                                     onClick={() => edit(item)}
                                 >
-                                    Sửa
+                                    Edit
                                 </button>
                                 <button
                                     className="text-button"
                                     onClick={() => void publish(item)}
                                 >
                                     {item.status === 'PUBLISHED'
-                                        ? 'Ẩn bài'
-                                        : 'Xuất bản'}
+                                        ? 'Hide'
+                                        : 'Publish'}
                                 </button>
                                 <button
                                     className="text-button danger"
                                     onClick={() => void remove(item)}
                                 >
-                                    Xóa
+                                    Delete
                                 </button>
                             </div>
                         ))}
                         {!items.length && (
-                            <div className="empty">Chưa có bài viết.</div>
+                            <div className="empty">No articles yet.</div>
                         )}
                         <div className="sync-admin">
-                            <span className="eyebrow">DỮ LIỆU THI ĐẤU</span>
+                            <span className="eyebrow">MATCH DATA</span>
                             <p>
-                                Yêu cầu đồng bộ theo giới hạn của nguồn miễn
-                                phí.
+                                Request a sync within the provider's free-tier
+                                limits.
                             </p>
                             {leagues.map(item => (
                                 <button
@@ -1185,7 +1205,7 @@ function Admin() {
                                             setError(
                                                 e instanceof Error
                                                     ? e.message
-                                                    : 'Đồng bộ không thành công.'
+                                                    : 'Sync failed.'
                                             );
                                         }
                                     }}
@@ -1205,24 +1225,24 @@ function App() {
     const route = useMemo(() => path.split('/').filter(Boolean), [path]);
     let page: React.ReactNode;
     if (path === '/') page = <Home navigate={navigate} />;
-    else if (path === '/lich-thi-dau') page = <Schedule navigate={navigate} />;
-    else if (path === '/tin-tuc') page = <News navigate={navigate} />;
-    else if (route[0] === 'tin-tuc' && route[1])
+    else if (path === '/fixtures') page = <Schedule navigate={navigate} />;
+    else if (path === '/news') page = <News navigate={navigate} />;
+    else if (route[0] === 'news' && route[1])
         page = <News slug={route[1]} navigate={navigate} />;
-    else if (route[0] === 'giai-dau' && route[1])
+    else if (route[0] === 'leagues' && route[1])
         page = (
             <CompetitionPage
                 code={route[1].toUpperCase()}
                 navigate={navigate}
             />
         );
-    else if (route[0] === 'tran-dau' && route[1])
+    else if (route[0] === 'matches' && route[1])
         page = <MatchDetail id={route[1]} navigate={navigate} />;
     else if (path === '/admin') page = <Admin />;
     else
         page = (
             <main className="content page-content">
-                <h1>Không tìm thấy trang</h1>
+                <h1>Page not found</h1>
             </main>
         );
     return (

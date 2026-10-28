@@ -4,9 +4,22 @@ import { registerAs } from '@nestjs/config';
 import { APP_ENVIRONMENT } from 'src/app/enums/app.enum';
 
 export default registerAs('app', () => {
-    const corsOrigins = process.env.APP_CORS_ORIGINS
+    const localDemoMode =
+        process.env.LOCAL_DEMO_MODE === 'true' &&
+        process.env.APP_ENV === 'local' &&
+        process.env.NODE_ENV !== 'production';
+    const configuredOrigins = process.env.APP_CORS_ORIGINS
         ? process.env.APP_CORS_ORIGINS.split(',').map(origin => origin.trim())
         : ['*'];
+    const corsOrigins = localDemoMode
+        ? [
+              ...new Set([
+                  ...configuredOrigins,
+                  'http://localhost:5173',
+                  'http://127.0.0.1:5173',
+              ]),
+          ]
+        : configuredOrigins;
 
     const corsConfig: CorsOptions = {
         origin: corsOrigins,

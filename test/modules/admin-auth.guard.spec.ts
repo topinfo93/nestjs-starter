@@ -27,6 +27,26 @@ describe('AdminAuthGuard', () => {
         );
     });
 
+    it('accepts the local demo token only in local demo mode', async () => {
+        const localConfig = {
+            get: (key: string) =>
+                ({
+                    LOCAL_DEMO_MODE: 'true',
+                    APP_ENV: 'local',
+                    ADMIN_EMAIL: 'topinfo93@gmail.com',
+                })[key],
+        };
+        const guard = new AdminAuthGuard(localConfig as never);
+        await expect(
+            guard.canActivate(
+                makeContext('Bearer local-demo:topinfo93@gmail.com')
+            )
+        ).resolves.toBe(true);
+        await expect(
+            guard.canActivate(makeContext('Bearer arbitrary-token'))
+        ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
     it('accepts a valid session for the configured admin email', async () => {
         jest.spyOn(global, 'fetch').mockResolvedValue({
             ok: true,

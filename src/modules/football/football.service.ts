@@ -8,13 +8,52 @@ import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from 'src/common/database/services/database.service';
 
 const COMPETITIONS = [
-    { code: 'PL', name: 'Premier League', area: 'Anh' },
-    { code: 'PD', name: 'La Liga', area: 'Tây Ban Nha' },
-    { code: 'BL1', name: 'Bundesliga', area: 'Đức' },
-    { code: 'SA', name: 'Serie A', area: 'Ý' },
-    { code: 'FL1', name: 'Ligue 1', area: 'Pháp' },
-    { code: 'CL', name: 'UEFA Champions League', area: 'Châu Âu' },
+    { code: 'PL', name: 'Premier League', area: 'England' },
+    { code: 'PD', name: 'La Liga', area: 'Spain' },
+    { code: 'BL1', name: 'Bundesliga', area: 'Germany' },
+    { code: 'SA', name: 'Serie A', area: 'Italy' },
+    { code: 'FL1', name: 'Ligue 1', area: 'France' },
+    { code: 'CL', name: 'UEFA Champions League', area: 'Europe' },
 ] as const;
+
+const MOCK_TEAMS = [
+    { id: 1001, name: 'Manchester City', shortName: 'Man City', tla: 'MCI' },
+    { id: 1002, name: 'Arsenal FC', shortName: 'Arsenal', tla: 'ARS' },
+    { id: 1003, name: 'Real Madrid CF', shortName: 'Real Madrid', tla: 'RMA' },
+    { id: 1004, name: 'FC Barcelona', shortName: 'Barcelona', tla: 'BAR' },
+];
+
+const mockMatches = () => {
+    const now = new Date();
+    return COMPETITIONS.flatMap((competition, index) => {
+        const home = MOCK_TEAMS[index % MOCK_TEAMS.length];
+        const away = MOCK_TEAMS[(index + 1) % MOCK_TEAMS.length];
+        return [
+            {
+                id: 900000 + index * 2,
+                competitionCode: competition.code,
+                competition,
+                utcDate: new Date(now.getTime() + 2 * 3600000).toISOString(),
+                status: 'SCHEDULED',
+                homeTeam: home,
+                awayTeam: away,
+                homeScore: null,
+                awayScore: null,
+            },
+            {
+                id: 900001 + index * 2,
+                competitionCode: competition.code,
+                competition,
+                utcDate: new Date(now.getTime() - 3 * 3600000).toISOString(),
+                status: 'FINISHED',
+                homeTeam: away,
+                awayTeam: home,
+                homeScore: 2,
+                awayScore: 1,
+            },
+        ];
+    });
+};
 
 type ApiTeam = {
     id: number;
@@ -47,7 +86,21 @@ export class FootballService {
         private readonly config: ConfigService
     ) {}
 
+    private get localDemoMode() {
+        return (
+            this.config.get<string>('LOCAL_DEMO_MODE') === 'true' &&
+            this.config.get<string>('APP_ENV') === 'local' &&
+            this.config.get<string>('NODE_ENV') !== 'production'
+        );
+    }
+
     async getCompetitions() {
+        if (this.localDemoMode) {
+            return COMPETITIONS.map(item => ({
+                ...item,
+                sync: { status: 'MOCK', fetchedAt: new Date().toISOString() },
+            }));
+        }
         const rows = await this.db.competition.findMany();
         const states = await this.db.syncState.findMany({
             where: { key: { startsWith: 'matches:' } },
@@ -69,6 +122,15 @@ export class FootballService {
 
     async getCompetition(code: string) {
         this.assertCompetition(code);
+        if (this.localDemoMode) {
+            return {
+                competition: COMPETITIONS.find(item => item.code === code),
+                matches: mockMatches().filter(
+                    match => match.competitionCode === code
+                ),
+                sync: { key: `matches:${code}`, status: 'MOCK' },
+            };
+        }
         void this.syncCompetition(code);
         const competition = await this.db.competition.findUnique({
             where: { code },
@@ -95,6 +157,30 @@ export class FootballService {
         to?: string;
         competition?: string;
     }) {
+        if (this.localDemoMode) {
+            const matches = mockMatches().filter(match => {
+                const date = new Date(match.utcDate).getTime();
+                const from = filters.from
+                    ? Date.parse(filters.from)
+                    : -Infinity;
+                const to = filters.to ? Date.parse(filters.to) : Infinity;
+                return (
+                    (!filters.competition ||
+                        match.competitionCode ===
+                            filters.competition.toUpperCase()) &&
+                    date >= from &&
+                    date <= to
+                );
+            });
+            return {
+                matches,
+                sync: COMPETITIONS.map(item => ({
+                    competition: item.code,
+                    status: 'MOCK',
+                    fetchedAt: new Date().toISOString(),
+                })),
+            };
+        }
         const now = new Date();
         const from =
             filters.from && !Number.isNaN(Date.parse(filters.from))
@@ -138,16 +224,40 @@ export class FootballService {
     }
 
     async getMatch(id: number) {
+        if (this.localDemoMode) {
+            const match = mockMatches().find(item => item.id === id);
+            if (!match) throw new NotFoundException('Match not found.');
+            return match;
+        }
         const match = await this.db.match.findUnique({
             where: { id },
             include: { competition: true, homeTeam: true, awayTeam: true },
         });
-        if (!match) throw new NotFoundException('Không tìm thấy trận đấu.');
+        if (!match) throw new NotFoundException('Match not found.');
         return match;
     }
 
     async getStandings(code: string) {
         this.assertCompetition(code);
+        if (this.localDemoMode) {
+            const teams = MOCK_TEAMS.slice(0, 4);
+            return {
+                competition: COMPETITIONS.find(item => item.code === code),
+                standings: teams.map((team, index) => ({
+                    position: index + 1,
+                    team,
+                    playedGames: 10,
+                    won: 8 - index,
+                    draw: index,
+                    lost: 2,
+                    points: 24 - index * 2,
+                    goalsFor: 25 - index * 2,
+                    goalsAgainst: 8 + index,
+                    goalDifference: 17 - index * 3,
+                })),
+                sync: { key: `standings:${code}`, status: 'MOCK' },
+            };
+        }
         void this.syncStandings(code);
         const competition = await this.db.competition.findUnique({
             where: { code },
@@ -173,6 +283,14 @@ export class FootballService {
 
     async syncCompetition(code: string, force = false) {
         this.assertCompetition(code);
+        if (this.localDemoMode) {
+            return {
+                key: `matches:${code}`,
+                status: 'MOCK',
+                fetchedAt: new Date().toISOString(),
+                forced: force,
+            };
+        }
         const key = `matches:${code}`;
         if (this.pending.has(key)) return this.pending.get(key);
         const previous = await this.db.syncState.findUnique({ where: { key } });
@@ -305,7 +423,8 @@ export class FootballService {
                 }>;
             };
             if (!payload.standings?.length) {
-                const message = 'Nguồn chưa trả về bảng xếp hạng cho giải này.';
+                const message =
+                    'The provider has not returned standings for this competition.';
                 return this.db.syncState.upsert({
                     where: { key },
                     create: {
@@ -451,7 +570,7 @@ export class FootballService {
         const token = this.config.get<string>('FOOTBALL_DATA_API_TOKEN');
         if (!token)
             throw new ServiceUnavailableException(
-                'Thiếu cấu hình nguồn dữ liệu bóng đá.'
+                'The football data provider is not configured.'
             );
         for (let attempt = 0; attempt < 2; attempt++) {
             const response = await fetch(
@@ -476,11 +595,13 @@ export class FootballService {
             }
             throw new Error(
                 response.status === 403
-                    ? 'Gói API hiện không hỗ trợ dữ liệu giải này.'
+                    ? 'The current API plan does not support this competition.'
                     : `football-data.org trả về HTTP ${response.status}.`
             );
         }
-        throw new Error('football-data.org chưa trả dữ liệu sau khi thử lại.');
+        throw new Error(
+            'football-data.org did not return data after retrying.'
+        );
     }
 
     private async saveState(key: string, status: string, error: string | null) {
@@ -506,7 +627,7 @@ export class FootballService {
         const message =
             error instanceof Error
                 ? error.message
-                : 'Không thể đồng bộ dữ liệu nguồn.';
+                : 'Could not sync data from the provider.';
         return this.db.syncState.upsert({
             where: { key },
             create: {
@@ -525,6 +646,6 @@ export class FootballService {
 
     private assertCompetition(code: string) {
         if (!COMPETITIONS.some(item => item.code === code))
-            throw new NotFoundException('Giải đấu không được hỗ trợ.');
+            throw new NotFoundException('This competition is not supported.');
     }
 }
